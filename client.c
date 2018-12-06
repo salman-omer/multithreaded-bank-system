@@ -14,9 +14,10 @@
 
 int main(int argc, char *argv[])
 {
-    int sockfd, status;
+    int sockfd, status, byteSize;
     struct addrinfo hints, *res, *p;
     char strIPaddr[INET_ADDRSTRLEN];    //IPv4 addr
+    char buf[MAXINPUTSIZE];
 
     //base case test - must have 3 arguments
     if (argc != 3)
@@ -70,14 +71,15 @@ int main(int argc, char *argv[])
 
     freeaddrinfo(res);      //no longer needed and cleared
 
-    // if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
-	//     perror("recv");
-	//     exit(1);
-	// }
 
-	// buf[numbytes] = '\0';
+    if ((byteSize = recv(sockfd, buf, MAXINPUTSIZE - 1, 0)) == -1)
+    {
+        perror("recv");
+        return 1;
+    }
 
-	// printf("client: received '%s'\n",buf);
+	buf[byteSize] = '\0';
+	printf("Client received '%s'\n", buf);
 
     close(sockfd);
 
