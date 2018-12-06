@@ -141,6 +141,7 @@ argument. The server takes the port to listen on as the only argument:
 ### Implementation
 **a. Messages**  
 Minimally, your code should produce the following messages:
+```
     Client announces completion of connection to server
     Server announces acceptance of connection from client
     Client disconnects (or is disconnected) from the server
@@ -148,6 +149,7 @@ Minimally, your code should produce the following messages:
     Client displays all error messages received from the server
     Client displays informational messages received from the server
     Client displays successful command completion messages received from the server
+```
 
 **b. Program Termination**  
 The server can be shut down by SIGINT, caused by using Ctrl+C on the server's terminal.
