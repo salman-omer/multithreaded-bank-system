@@ -63,18 +63,22 @@ int main(void)
 
     // loop through all the results and bind to the first we can
     for(p = servinfo; p != NULL; p = p->ai_next) {
+    	// create socket file descriptor to read from/to later
         if ((sockfd = socket(p->ai_family, p->ai_socktype,
                 p->ai_protocol)) == -1) {
             perror("server: socket");
             continue;
         }
 
+
+        // if it thinks the socket is already in use, still proceed
         if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
                 sizeof(int)) == -1) {
             perror("setsockopt");
             exit(1);
         }
 
+        // binds socket to port passed in with address info
         if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
             close(sockfd);
             perror("server: bind");
@@ -91,6 +95,7 @@ int main(void)
         exit(1);
     }
 
+    // this server starts listening on this socket, waiting for a connection
     if (listen(sockfd, BACKLOG) == -1) {
         perror("listen");
         exit(1);
@@ -108,6 +113,8 @@ int main(void)
 
     while(1) {  // main accept() loop
         sin_size = sizeof their_addr;
+
+        // this accept creates a new socket file descriptor for this connection specifically
         new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
         if (new_fd == -1) {
             perror("accept");
@@ -119,9 +126,10 @@ int main(void)
             s, sizeof s);
         printf("server: got connection from %s\n", s);
 
+        // creates a child to deal with sending a message to client
         if (!fork()) { // this is the child process
             close(sockfd); // child doesn't need the listener
-            if (send(new_fd, "Hello, world!", 13, 0) == -1)
+            if (send(new_fd, "Hello, world!\n", 14, 0) == -1)
                 perror("send");
             close(new_fd);
             exit(0);
