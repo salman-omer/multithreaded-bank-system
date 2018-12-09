@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
     {
         printf("FATAL ERROR: INCORRECT NUMBER OF INPUTS\n");
         write(2, "FATAL ERROR: INCORRECT NUMBER OF INPUTS\n", 41);
-  	return 1;
+  	    return 1;
     }
     
     memset(&hints, 0, sizeof hints);
