@@ -15,7 +15,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 
-#define PORT "10000"  // the port users will be connecting to
+//#define PORT "10000"  // the port users will be connecting to
 
 #define BACKLOG 10     // how many pending connections queue will hold
 
@@ -40,7 +40,7 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
     int sockfd, new_fd;  // listen on sock_fd, new connection on new_fd
     struct addrinfo hints, *servinfo, *p;
@@ -51,12 +51,19 @@ int main(void)
     char s[INET6_ADDRSTRLEN];
     int rv;
 
+    if (argc != 2)
+    {
+        printf("FATAL ERROR: INCORRECT NUMBER OF INPUTS\n");
+        write(2, "FATAL ERROR: INCORRECT NUMBER OF INPUTS\n", 41);
+  	return 1;
+    }
+    
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE; // use my IP
 
-    if ((rv = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0) {
+    if ((rv = getaddrinfo(NULL, argv[1], &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return 1;
     }
@@ -129,7 +136,7 @@ int main(void)
         // creates a child to deal with sending a message to client
         if (!fork()) { // this is the child process
             close(sockfd); // child doesn't need the listener
-            if (send(new_fd, "Hello, world!\n", 14, 0) == -1)
+            if (send(new_fd, "Hello, world!", 14, 0) == -1)
                 perror("send");
             close(new_fd);
             exit(0);
