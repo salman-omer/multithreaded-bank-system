@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
   		return 1;
     }
 
-
+    //put this in while loop with 3 second timer so client can be turned on first and still connect to server after
     //loop thru all res and connect to first one
     for (p = res; p != NULL; p = p->ai_next)
     {
@@ -111,9 +111,9 @@ int main(int argc, char *argv[])
             index++;
         }
 
-        while (msg[index + i] != ' ' && i < 9 && msg[index + i] != '\0')       //get command
+        while (msg[index + i] != ' ' && i < 9 && msg[index + i] != '\0' && msg[index + i] != '\t')       //get command
         {
-            printf("msg: %c\n", msg[index + i]);
+            // printf("msg: %c\n", msg[index + i]);
             cmd[i] = msg[index + i];
             i++;
         }
@@ -121,14 +121,13 @@ int main(int argc, char *argv[])
         printf("Command is: %s\n", cmd);
 
         //check if invalid command
-        if ((strcmp(cmd, "create") != 0) && !(strcmp(cmd, "serve") == 0) && (strcmp(cmd, "deposit") != 0) && (strcmp(cmd, "withdraw") != 0) && (strcmp(cmd, "query") != 0) && (strcmp(cmd, "end") != 0) && (strcmp(cmd, "quit") != 0))
+        if ((strcasecmp(cmd, "create") != 0) && !(strcmp(cmd, "serve") == 0) && (strcmp(cmd, "deposit") != 0) && (strcmp(cmd, "withdraw") != 0) && (strcmp(cmd, "query") != 0) && (strcmp(cmd, "end") != 0) && (strcmp(cmd, "quit") != 0))
         {
             printf("ERROR: INVALID COMMAND\n");
             write(2, "ERROR: INVALID COMMAND\n", 24);
             continue;
         }
         // printf("Flag: ONLY VALID COMMAND MAY PASS!!!\n");
-
 
         if ((strcmp(cmd, "create") == 0) || (strcmp(cmd, "serve") == 0) || (strcmp(cmd, "deposit") == 0) || (strcmp(cmd, "withdraw") == 0))
         {
@@ -149,14 +148,19 @@ int main(int argc, char *argv[])
         }
         else
         {
-            // char finalMsg[MAXINPUTSIZE];
-            // snprintf(finalMsg, sizeof finalMsg, "%s", cmd);
-            if ((byteSize = send(sockfd, cmd, strlen(cmd), 0)) == -1)
+            // printf("U here?2\n");
+            char finalMsg[strlen(cmd)+1];
+            snprintf(finalMsg, sizeof finalMsg + 1, "%s|", cmd);
+            byteSize = 0;
+            //cannot send twice
+            if ((byteSize = send(sockfd, finalMsg, strlen(finalMsg), 0)) == -1)
             {
+                // printf("U here?.\n"); 
                 perror("send");
                 return 1;
             }
-            printf("Client has sent '%s' command to the server.\n", cmd);
+            printf("Client has sent '%s' command to the server.\n\n", finalMsg);     //send query, end, quit command to server
+            continue;
         }
         
         
