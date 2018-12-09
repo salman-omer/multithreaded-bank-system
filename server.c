@@ -15,7 +15,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 
-//#define PORT "10000"  // the port users will be connecting to
+#define PORT "10000"  // the port users will be connecting to
 
 #define BACKLOG 10     // how many pending connections queue will hold
 
@@ -40,7 +40,7 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
     int sockfd, new_fd;  // listen on sock_fd, new connection on new_fd
     struct addrinfo hints, *servinfo, *p;
@@ -51,26 +51,19 @@ int main(int argc, char *argv[])
     char s[INET6_ADDRSTRLEN];
     int rv;
 
-    if (argc != 2)
-    {
-        printf("FATAL ERROR: INCORRECT NUMBER OF INPUTS\n");
-        write(2, "FATAL ERROR: INCORRECT NUMBER OF INPUTS\n", 41);
-  	    return 1;
-    }
-    
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE; // use my IP
 
-    if ((rv = getaddrinfo(NULL, argv[1], &hints, &servinfo)) != 0) {
+    if ((rv = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return 1;
     }
 
     // loop through all the results and bind to the first we can
     for(p = servinfo; p != NULL; p = p->ai_next) {
-    	// create socket file descriptor to read from/to later
+        // create socket file descriptor to read from/to later
         if ((sockfd = socket(p->ai_family, p->ai_socktype,
                 p->ai_protocol)) == -1) {
             perror("server: socket");
@@ -133,16 +126,18 @@ int main(int argc, char *argv[])
             s, sizeof s);
         printf("server: got connection from %s\n", s);
 
-        // creates a child to deal with sending a message to client
-        if (!fork()) { // this is the child process
-            close(sockfd); // child doesn't need the listener
-            if (send(new_fd, "Hello, world!", 14, 0) == -1)
-                perror("send");
-            close(new_fd);
-            exit(0);
-        }
-        close(new_fd);  // parent doesn't need this
+  
+
+        if (send(new_fd, "Hello, world!\n", 14, 0) == -1)
+            perror("send");
+        sleep(5);
+        if (send(new_fd, "Hello, world!\n", 14, 0) == -1)
+            perror("send");
+  
+        close(new_fd);
     }
+
+    close(sockfd);
 
     return 0;
 }
