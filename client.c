@@ -12,6 +12,17 @@
 //#define PORT "10000"
 #define MAXINPUTSIZE 300
 
+/*
+int strCaseInsensitiveCmp(char *str1, char *str2)
+{
+    int i;
+    for (i = 0; i < strlen(str1); i++)
+    {
+
+    }
+}
+*/
+
 int main(int argc, char *argv[])
 {
     int sockfd, status, byteSize;
@@ -67,7 +78,7 @@ int main(int argc, char *argv[])
     }
 
     inet_ntop(p->ai_family, p->ai_addr, strIPaddr, sizeof strIPaddr);
-    printf("Client connecting to %s ...\n", strIPaddr);
+    printf("Client connecting to %s\n", strIPaddr);
 
     freeaddrinfo(res);      //no longer needed and cleared
 
@@ -79,9 +90,81 @@ int main(int argc, char *argv[])
     }
 
 	buf[byteSize] = '\0';
+    printf("Client has successfully connected to the server.\n");
 	printf("Client received '%s'\n", buf);
 
+
+    char cmd[10], accountName[256];
+    char msg[MAXINPUTSIZE];
+    // double amount;
+    while (1)
+    {
+        fgets(msg, MAXINPUTSIZE, stdin);
+        printf("Message is: %s\n", msg);
+        // printf("Message length is: %i\n", strlen(msg));
+        msg[strlen(msg)-1] = '\0';
+
+        int index = 0, i = 0;
+
+        while (msg[index] == ' ' || msg[index] == '\t')     //checking leading spaces
+        {
+            index++;
+        }
+
+        while (msg[index + i] != ' ' && i < 9 && msg[index + i] != '\0')       //get command
+        {
+            printf("msg: %c\n", msg[index + i]);
+            cmd[i] = msg[index + i];
+            i++;
+        }
+        cmd[i] = '\0';  //leading spaces removed + cmd now has the command syntax
+        printf("Command is: %s\n", cmd);
+
+        //check if invalid command
+        if ((strcmp(cmd, "create") != 0) && !(strcmp(cmd, "serve") == 0) && (strcmp(cmd, "deposit") != 0) && (strcmp(cmd, "withdraw") != 0) && (strcmp(cmd, "query") != 0) && (strcmp(cmd, "end") != 0) && (strcmp(cmd, "quit") != 0))
+        {
+            printf("ERROR: INVALID COMMAND\n");
+            write(2, "ERROR: INVALID COMMAND\n", 24);
+            continue;
+        }
+        // printf("Flag: ONLY VALID COMMAND MAY PASS!!!\n");
+
+
+        if ((strcmp(cmd, "create") == 0) || (strcmp(cmd, "serve") == 0) || (strcmp(cmd, "deposit") == 0) || (strcmp(cmd, "withdraw") == 0))
+        {
+            index = index + i + 1;
+            i = 0;
+            while (msg[index] == ' ' || msg[index] == '\t')     //removing unnecessary spaces in between command and second input
+            {
+                index++;
+            }
+            
+            while (msg[index + i] != ' ' && i < 254)       //get second input
+            {
+                accountName[i] = msg[index + i];
+                i++;
+            }
+            accountName[i] = '\0';  //leading spaces removed + accountName now acquired
+            printf("accountName is: %s\n", accountName);
+        }
+        else
+        {
+            // char finalMsg[MAXINPUTSIZE];
+            // snprintf(finalMsg, sizeof finalMsg, "%s", cmd);
+            if ((byteSize = send(sockfd, cmd, strlen(cmd), 0)) == -1)
+            {
+                perror("send");
+                return 1;
+            }
+            printf("Client has sent '%s' command to the server.\n", cmd);
+        }
+        
+        
+        
+    }
+
     close(sockfd);
+    printf("Client has successfully disconnected from the server.\n");
 
     return 0;
 }
