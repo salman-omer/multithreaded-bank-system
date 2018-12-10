@@ -14,10 +14,18 @@
 #include <arpa/inet.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <pthread.h>
 
 #define PORT "10000"  // the port users will be connecting to
 
 #define BACKLOG 10     // how many pending connections queue will hold
+
+#define MAXDATASIZE 100 // max number of bytes we can get at once 
+
+typedef struct singleClientHandlerArgs{
+    int socketFd;
+    struct sockaddr_storage* client_addr;
+} singleClientHandlerArgs;
 
 void sigchld_handler(int s)
 {
@@ -40,9 +48,52 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
+void* singleClientHander(void* args){
+    singleClientHandlerArgs* argsStruct= (singleClientHandlerArgs*)args;
+    char buf[MAXDATASIZE];
+    int numbytes;
+    char s[INET6_ADDRSTRLEN];
+
+    inet_ntop(argsStruct->client_addr->ss_family,
+        get_in_addr((struct sockaddr *)argsStruct->client_addr),
+        s, sizeof(s));
+
+    printf("server: got connection from %s\n", s);
+
+  
+
+    // the actual sending and recieving
+
+    if (send(argsStruct->socketFd, "Hello, world!\n", 14, 0) == -1)
+        perror("send");
+    
+    sleep(1);
+    
+    if (send(argsStruct->socketFd, "Hello, world!\n", 14, 0) == -1)
+        perror("send");
+
+    printf("Data Sent\n");
+
+    if ((numbytes = recv(argsStruct->socketFd, buf, MAXDATASIZE-1, 0)) == -1) {
+        perror("recv");
+        exit(1);
+    } else if (numbytes == 0) {
+        printf("Connection closed by client\n");
+    } else {
+        printf("server: received '%s'\n",buf);
+    }
+
+  
+    close(argsStruct->socketFd);
+
+    return NULL;
+}
+
+
 int main(void)
 {
-    int sockfd, new_fd;  // listen on sock_fd, new connection on new_fd
+    char buf[MAXDATASIZE];
+    int sockfd, new_fd, numbytes;  // listen on sock_fd, new connection on new_fd
     struct addrinfo hints, *servinfo, *p;
     struct sockaddr_storage their_addr; // connector's address information
     socklen_t sin_size;
@@ -85,6 +136,8 @@ int main(void)
             continue;
         }
 
+
+
         break;
     }
 
@@ -121,20 +174,19 @@ int main(void)
             continue;
         }
 
-        inet_ntop(their_addr.ss_family,
-            get_in_addr((struct sockaddr *)&their_addr),
-            s, sizeof s);
-        printf("server: got connection from %s\n", s);
 
-  
+        // if there is a created socket, make a thread for this interaction
+        pthread_t tid;
+        void* status;
 
-        if (send(new_fd, "Hello, world!\n", 14, 0) == -1)
-            perror("send");
-        sleep(5);
-        if (send(new_fd, "Hello, world!\n", 14, 0) == -1)
-            perror("send");
-  
-        close(new_fd);
+        // create singleClientHandler data that is necessary
+        singleClientHandlerArgs *args = malloc(sizeof(singleClientHandlerArgs));
+        args->socketFd = new_fd;
+        args->client_addr = &their_addr;
+        
+        pthread_create(&tid, NULL, singleClientHander, (void *)args);
+        pthread_join(tid, &status);
+
     }
 
     close(sockfd);

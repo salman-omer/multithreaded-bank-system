@@ -80,6 +80,13 @@ int main(int argc, char *argv[])
 
     while(1){
 
+        if (send(sockfd, "Hello, world!\n", 14, 0) == -1){
+            perror("send");
+        } else {
+            printf("Hello world sent\n");
+        }
+
+
         if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
             perror("recv");
             exit(1);
@@ -87,6 +94,7 @@ int main(int argc, char *argv[])
             printf("Connection closed by server\n");
             break;
         }
+
 
         buf[numbytes] = '\0';
 
