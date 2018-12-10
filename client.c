@@ -184,10 +184,24 @@ int main(int argc, char *argv[])
                 return 1;
             }
             printf("Client has sent '%s' command to the server.\n\n", finalMsg);     //send query, end, quit command to server
+            
+            
+            //recv from server
+            if ((byteSize = recv(new_sockfd, buf, MAXINPUTSIZE - 1, 0)) == -1)
+            {
+                perror("recv");
+                return 1;
+            }
+            buf[byteSize] = '\0';
+            printf("Client received '%s'\n", buf);
+            
+            close(new_sockfd);
+            
             continue;
         }
         
         //recv from server
+        /*
         if ((byteSize = recv(new_sockfd, buf, MAXINPUTSIZE - 1, 0)) == -1)
         {
             perror("recv");
@@ -195,8 +209,8 @@ int main(int argc, char *argv[])
         }
         buf[byteSize] = '\0';
         printf("Client received '%s'\n", buf);
-        
-        
+        */
+
         close(new_sockfd);
     }
 
