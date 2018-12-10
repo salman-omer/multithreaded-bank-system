@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
 
     freeaddrinfo(res);      //no longer needed and cleared
 
-
+    /*
     if ((byteSize = recv(sockfd, buf, MAXINPUTSIZE - 1, 0)) == -1)
     {
         perror("recv");
@@ -96,6 +96,8 @@ int main(int argc, char *argv[])
 	buf[byteSize] = '\0';
     printf("Client has successfully connected to the server.\n");
 	printf("Client received '%s'\n", buf);
+    */
+    printf("Client has successfully connected to the server.\n");
 
     /* command prompt */
     char cmd[10], accountName[256];
@@ -175,7 +177,6 @@ int main(int argc, char *argv[])
             // printf("U here?2\n");
             char finalMsg[strlen(cmd)+1];
             snprintf(finalMsg, sizeof finalMsg + 1, "%s|", cmd);
-            //cannot send twice
             if ((byteSize = send(new_sockfd, finalMsg, strlen(finalMsg), 0)) == -1)
             {
                 // printf("U here?.\n");
@@ -185,6 +186,16 @@ int main(int argc, char *argv[])
             printf("Client has sent '%s' command to the server.\n\n", finalMsg);     //send query, end, quit command to server
             continue;
         }
+        
+        //recv from server
+        if ((byteSize = recv(new_sockfd, buf, MAXINPUTSIZE - 1, 0)) == -1)
+        {
+            perror("recv");
+            return 1;
+        }
+        buf[byteSize] = '\0';
+        printf("Client received '%s'\n", buf);
+        
         
         close(new_sockfd);
     }
