@@ -29,6 +29,8 @@ int main(int argc, char *argv[])
     struct addrinfo hints, *res, *p;
     char strIPaddr[INET_ADDRSTRLEN];    //IPv4 addr
 
+    struct timeval tv;
+
     // int new_sockfd;
     // struct sockaddr_storage their_addr;
     // socklen_t addr_size;
@@ -54,6 +56,7 @@ int main(int argc, char *argv[])
   		return 1;
     }
 
+/*
     //put this in while loop with 3 second timer so client can be turned on first and still connect to server after
     //loop thru all res and connect to first one
     for (p = res; p != NULL; p = p->ai_next)
@@ -79,6 +82,34 @@ int main(int argc, char *argv[])
   		write(2, "FATAL ERROR: CLIENT FAILED TO CONNECT\n", 39);
   		return 1;
     }
+*/
+
+    //client or server can be provoked in any order
+    while (1)
+    {
+        for (p = res; p != NULL; p = p->ai_next)
+        {
+            if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)  //socket error
+            {
+                perror("Client: Socket");
+                sleep(3);
+                continue;
+            }
+
+            if ((connect(sockfd, p->ai_addr, p->ai_addrlen)) == -1)     //connect error
+            {
+                perror("Client: Connect");
+                sleep(3);
+                continue;
+            }
+            break;
+        }
+        if (p != NULL)
+        {
+            break;
+        }
+    }
+
 
     inet_ntop(p->ai_family, p->ai_addr, strIPaddr, sizeof strIPaddr);
     printf("Client connecting to %s\n", strIPaddr);
@@ -98,6 +129,8 @@ int main(int argc, char *argv[])
     */
     printf("Client has successfully connected to the server.\n");
 
+    tv.tv_sec = 2;
+    tv.tv_usec = 0;
 
     /* command prompt */
     while (1)
