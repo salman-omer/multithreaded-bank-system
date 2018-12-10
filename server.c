@@ -1,7 +1,3 @@
-/*
-** server.c -- a stream socket server demo
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -26,17 +22,17 @@ typedef enum { false, true } bool;
 typedef struct singleClientHandlerArgs{
     int socketFd;
     struct sockaddr_storage* client_addr;
-    bool* forceExitThread;
+    //bool* forceExitThread;
 } singleClientHandlerArgs;
 
 typedef struct tidListNode{
     pthread_t tid;
-    bool* forceExitThread;
+    //bool* forceExitThread;
     struct tidListNode* next;
 } tidListNode;
 
 typedef struct accountNode{
-    char* name;
+    char* accountName;
     double balance;
     bool inService;
     struct accountNode* next;
@@ -50,18 +46,16 @@ int sockfd;
 
 
 // add the input tid to beginning of the linked list
-void addTidToList(pthread_t tid, bool* forceExitThreadArg){
+void addTidToList(pthread_t tid){
     if(tidList == NULL){
         tidList = malloc(sizeof(tidListNode));
         tidList->tid = tid;
-        tidList->forceExitThread = forceExitThreadArg;
         tidList->next = NULL;
         return;
     }
     tidListNode* curr = tidList;
     tidListNode* newNode = malloc(sizeof(tidListNode));
     newNode->tid = tid;
-    newNode->forceExitThread = forceExitThreadArg;
     newNode->next = curr;
     tidList = newNode;
     return;
@@ -87,10 +81,7 @@ void handle_sigint(int sig)
     // join all the tids
     tidListNode* curr = tidList;
     while(curr != NULL){
-        void* status;
-        *(curr->forceExitThread) = true;
-        //pthread_cancel(curr->tid);
-        pthread_join(curr->tid, &status);
+        pthread_cancel(curr->tid);
         
         tidListNode* currCopyToFree = curr;
         curr = curr->next;
@@ -112,6 +103,51 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
+//return the command type for the input command
+//returns an int with the following correspondence:
+//1 ="create";  2  = "serve"; 3 = "deposit", 4 = "withdraw", 5 ="query",  6 ="end",  7 ="quit",   8 =  "invalid command"
+int getCommandType(char* inputCommand){
+    if(inputCommand == NULL || strlen(inputCommand)  < 3){
+        return 8;
+    }
+
+    //create
+    if(inputCommand[0] == 'c'){ 
+        return 1;
+    }
+
+    //quit or query
+    if(inputCommand[0] == 'q'){
+
+        // quit
+        if(inputCommand[2] == 'i'){
+            return 7;
+        }
+
+        //query
+        if (inputCommand[2] == 'e')
+        {
+            return 5;
+        }
+    }
+
+    if(inputCommand[0] == 's'){
+        return 2;
+    }
+    if(inputCommand[0] == 'd'){
+        return 3;
+    }
+    if(inputCommand[0] == 'w'){
+        return 4;
+    }
+
+    if(inputCommand[0] == 'e'){
+        return 6;
+    }
+
+    return 8;
+}
+
 void* singleClientHandler(void* args){
     singleClientHandlerArgs* argsStruct= (singleClientHandlerArgs*)args;
     char buf[MAXDATASIZE];
@@ -125,11 +161,10 @@ void* singleClientHandler(void* args){
     printf("server: got connection from %s\n", s);
 
   
+    char* accountNameInService = NULL;
     // server first recieves, then it sends back a response
     while(1){
-        if(*(argsStruct->forceExitThread) == true){
-            pthread_exit((void*)1);
-        }
+
 
         // reset buffer
         buf[0] = '\0';
@@ -151,7 +186,28 @@ void* singleClientHandler(void* args){
                 }
             }
 
-            printf("server: received '%s'\n",buf);
+            // now we do something with the recieved data based on what command is submitted
+            int commandType = getCommandType(buf);
+
+            //create
+            if(commandType == 1){
+                printf("server: received '%s' of command type '%s'\n",buf, "create");
+            } else if (commandType == 2){ // serve
+                printf("server: received '%s' of command type '%s'\n",buf, "serve");
+            } else if (commandType == 3){ // deposit
+                printf("server: received '%s' of command type '%s'\n",buf, "deposit");
+            } else if (commandType == 4){ // withdraw
+                printf("server: received '%s' of command type '%s'\n",buf, "withdraw");
+            } else if (commandType == 5){ // query
+                printf("server: received '%s' of command type '%s'\n",buf, "query");
+            } else if (commandType == 6){ // end
+                printf("server: received '%s' of command type '%s'\n",buf, "end");
+            } else if (commandType == 7){ // quit
+                printf("server: received '%s' of command type '%s'\n",buf, "quit");
+            } else { // invalid command
+                printf("server: received '%s' of command type '%s'\n",buf, "invalid command");
+            }
+
         }
 
 
@@ -299,14 +355,11 @@ int main(int argc, char* argv[])
 
         // create singleClientHandler data that is necessary
         singleClientHandlerArgs *args = malloc(sizeof(singleClientHandlerArgs));
-        bool* forceExitThreadArg = malloc(sizeof(bool));
-        *forceExitThreadArg = false;
-        args->forceExitThread = forceExitThreadArg;
         args->socketFd = new_fd;
         args->client_addr = &their_addr;
         
         pthread_create(&tid, NULL, singleClientHandler, (void *)args);
-        addTidToList(tid, forceExitThreadArg);
+        addTidToList(tid);
 
     }
 
