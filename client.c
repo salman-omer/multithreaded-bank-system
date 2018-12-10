@@ -100,13 +100,14 @@ int main(int argc, char *argv[])
     printf("Client has successfully connected to the server.\n");
 
     /* command prompt */
-    char cmd[10], accountName[256];
-    char msg[MAXINPUTSIZE];
     // double amount;
-    int new_sockfd;
+    // int new_sockfd;
     while (1)
     {
+        char cmd[10], accountName[256];
+        char msg[MAXINPUTSIZE];
         //new socket for commands
+        /*
         if ((new_sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)  //socket error
         {
             perror("Client: socket");
@@ -115,6 +116,7 @@ int main(int argc, char *argv[])
         {
             perror("Client: Connect");
         }
+        */
 
         // addr_size = sizeof their_addr;
         // new_sockfd = accept(new_sockfd, (struct sockaddr *)&their_addr, &addr_size);
@@ -177,7 +179,7 @@ int main(int argc, char *argv[])
             // printf("U here?2\n");
             char finalMsg[strlen(cmd)+1];
             snprintf(finalMsg, sizeof finalMsg + 1, "%s|", cmd);
-            if ((byteSize = send(new_sockfd, finalMsg, strlen(finalMsg), 0)) == -1)
+            if ((byteSize = send(sockfd, finalMsg, strlen(finalMsg), 0)) == -1)
             {
                 // printf("U here?.\n");
                 perror("send");
@@ -185,9 +187,9 @@ int main(int argc, char *argv[])
             }
             printf("Client has sent '%s' command to the server.\n\n", finalMsg);     //send query, end, quit command to server
             
-            
+
             //recv from server
-            if ((byteSize = recv(new_sockfd, buf, MAXINPUTSIZE - 1, 0)) == -1)
+            if ((byteSize = recv(sockfd, buf, MAXINPUTSIZE - 1, 0)) == -1)
             {
                 perror("recv");
                 return 1;
@@ -195,7 +197,7 @@ int main(int argc, char *argv[])
             buf[byteSize] = '\0';
             printf("Client received '%s'\n", buf);
             
-            close(new_sockfd);
+            // close(new_sockfd);
             
             continue;
         }
@@ -211,7 +213,7 @@ int main(int argc, char *argv[])
         printf("Client received '%s'\n", buf);
         */
 
-        close(new_sockfd);
+        // close(new_sockfd);
     }
 
     close(sockfd);
