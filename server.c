@@ -21,15 +21,26 @@
 
 #define MAXDATASIZE 100 // max number of bytes we can get at once 
 
+typedef enum { false, true } bool;
+
 typedef struct singleClientHandlerArgs{
     int socketFd;
     struct sockaddr_storage* client_addr;
+    bool* forceExitThread;
 } singleClientHandlerArgs;
 
 typedef struct tidListNode{
     pthread_t tid;
+    bool* forceExitThread;
     struct tidListNode* next;
 } tidListNode;
+
+typedef struct accountNode{
+    char* name;
+    double balance;
+    bool inService;
+    struct accountNode* next;
+} accountNode;
 
 
 // GLOBAL VARIABLES
@@ -39,16 +50,18 @@ int sockfd;
 
 
 // add the input tid to beginning of the linked list
-void addTidToList(pthread_t tid){
+void addTidToList(pthread_t tid, bool* forceExitThreadArg){
     if(tidList == NULL){
         tidList = malloc(sizeof(tidListNode));
         tidList->tid = tid;
+        tidList->forceExitThread = forceExitThreadArg;
         tidList->next = NULL;
         return;
     }
     tidListNode* curr = tidList;
     tidListNode* newNode = malloc(sizeof(tidListNode));
     newNode->tid = tid;
+    newNode->forceExitThread = forceExitThreadArg;
     newNode->next = curr;
     tidList = newNode;
     return;
@@ -62,18 +75,21 @@ void sigchld_handler(int s)
     while(waitpid(-1, NULL, WNOHANG) > 0);
 
     errno = saved_errno;
+    exit(1);
 }
 
 // Handler for SIGINT, caused by 
 // Ctrl-C at keyboard 
 void handle_sigint(int sig) 
 { 
-    printf("Exit signal %d caught\n", sig); 
+    printf("Exit signal %d caught \n", sig); 
 
     // join all the tids
     tidListNode* curr = tidList;
     while(curr != NULL){
         void* status;
+        *(curr->forceExitThread) = true;
+        //pthread_cancel(curr->tid);
         pthread_join(curr->tid, &status);
         
         tidListNode* currCopyToFree = curr;
@@ -96,7 +112,7 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-void* singleClientHander(void* args){
+void* singleClientHandler(void* args){
     singleClientHandlerArgs* argsStruct= (singleClientHandlerArgs*)args;
     char buf[MAXDATASIZE];
     int numbytes;
@@ -111,6 +127,10 @@ void* singleClientHander(void* args){
   
     // server first recieves, then it sends back a response
     while(1){
+        if(*(argsStruct->forceExitThread) == true){
+            pthread_exit((void*)1);
+        }
+
         // reset buffer
         buf[0] = '\0';
 
@@ -279,11 +299,14 @@ int main(int argc, char* argv[])
 
         // create singleClientHandler data that is necessary
         singleClientHandlerArgs *args = malloc(sizeof(singleClientHandlerArgs));
+        bool* forceExitThreadArg = malloc(sizeof(bool));
+        *forceExitThreadArg = false;
+        args->forceExitThread = forceExitThreadArg;
         args->socketFd = new_fd;
         args->client_addr = &their_addr;
         
-        pthread_create(&tid, NULL, singleClientHander, (void *)args);
-        addTidToList(tid);
+        pthread_create(&tid, NULL, singleClientHandler, (void *)args);
+        addTidToList(tid, forceExitThreadArg);
 
     }
 
