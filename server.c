@@ -111,6 +111,9 @@ void* singleClientHander(void* args){
   
     // server first recieves, then it sends back a response
     while(1){
+        // reset buffer
+        buf[0] = '\0';
+
         if ((numbytes = recv(argsStruct->socketFd, buf, MAXDATASIZE-1, 0)) == -1) {
             perror("recv");
             exit(1);
@@ -118,10 +121,19 @@ void* singleClientHander(void* args){
             printf("Connection closed by client\n");
             break;
         } else {
+            // make the first bar a '\0'
+
+            int i;
+            for (i = 0; i < MAXDATASIZE - 1; ++i)
+            {
+                if(buf[i] == '|'){
+                    buf[i] = '\0';
+                }
+            }
+
             printf("server: received '%s'\n",buf);
         }
 
-        sleep(5);
 
 
         char *strToSend = (char*)malloc((44 + strlen(buf) + 1) * sizeof(char));
@@ -243,6 +255,13 @@ int main(int argc, char* argv[])
     }
 
     printf("server: waiting for connections...\n");
+
+
+
+    //TODO: make a thread to handle printing every 15 seconds as per project specs
+
+
+
 
     while(1) {  // main accept() loop
         sin_size = sizeof their_addr;
