@@ -16,7 +16,6 @@
 #include <signal.h>
 #include <pthread.h>
 
-#define PORT "10000"  // the port users will be connecting to
 
 #define BACKLOG 10     // how many pending connections queue will hold
 
@@ -61,27 +60,25 @@ void* singleClientHander(void* args){
     printf("server: got connection from %s\n", s);
 
   
+    // server first recieves, then it sends back a response
+    while(1){
+        if ((numbytes = recv(argsStruct->socketFd, buf, MAXDATASIZE-1, 0)) == -1) {
+            perror("recv");
+            exit(1);
+        } else if (numbytes == 0) {
+            printf("Connection closed by client\n");
+            break;
+        } else {
+            printf("server: received '%s'\n",buf);
+        }
 
-    // the actual sending and recieving
 
-    if (send(argsStruct->socketFd, "Hello, world!\n", 14, 0) == -1)
-        perror("send");
-    
-    sleep(1);
-    
-    if (send(argsStruct->socketFd, "Hello, world!\n", 14, 0) == -1)
-        perror("send");
-
-    printf("Data Sent\n");
-
-    if ((numbytes = recv(argsStruct->socketFd, buf, MAXDATASIZE-1, 0)) == -1) {
-        perror("recv");
-        exit(1);
-    } else if (numbytes == 0) {
-        printf("Connection closed by client\n");
-    } else {
-        printf("server: received '%s'\n",buf);
+        char *strToSend = (char*)malloc((44 + strlen(buf) + 1) * sizeof(char));
+        sprintf(strToSend, "Hi client, here's what the server recieved:  %s!", buf);
+        if (send(argsStruct->socketFd, strToSend, 44 + strlen(buf) + 1, 0) == -1)
+            perror("send");
     }
+
 
   
     close(argsStruct->socketFd);
@@ -90,16 +87,44 @@ void* singleClientHander(void* args){
 }
 
 
-int main(void)
+// check if input port string is a valid port number
+// return 0 if valid, 1 otherwise
+int isValidPortNumber(char* portString){
+    int portNum = atoi(portString);
+    if(portNum == 0 || portNum < 8192 || portNum > 65535){
+        return 1;
+    }
+    return 0;
+}
+
+
+int main(int argc, char* argv[])
 {
-    char buf[MAXDATASIZE];
-    int sockfd, new_fd, numbytes;  // listen on sock_fd, new connection on new_fd
+    //base case test - must have 2 arguments
+    if (argc != 2)
+    {
+        printf("FATAL ERROR: INCORRECT NUMBER OF INPUTS\n");
+        write(2, "FATAL ERROR: INCORRECT NUMBER OF INPUTS\n", 41);
+        return 1;
+    }
+
+    if(isValidPortNumber(argv[1]) == 1){
+        printf("FATAL ERROR: INPUT PORT NUMBER IS NOT VALID\n");
+        write(2, "FATAL ERROR: INPUT PORT NUMBER IS NOT VALID\n", 41);
+        return 1;
+    }
+
+
+
+
+
+   
+    int sockfd, new_fd;  // listen on sock_fd, new connection on new_fd
     struct addrinfo hints, *servinfo, *p;
     struct sockaddr_storage their_addr; // connector's address information
     socklen_t sin_size;
     struct sigaction sa;
     int yes=1;
-    char s[INET6_ADDRSTRLEN];
     int rv;
 
     memset(&hints, 0, sizeof hints);
@@ -107,7 +132,7 @@ int main(void)
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE; // use my IP
 
-    if ((rv = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0) {
+    if ((rv = getaddrinfo(NULL, argv[1], &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return 1;
     }

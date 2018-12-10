@@ -18,6 +18,8 @@
 
 #define MAXDATASIZE 100 // max number of bytes we can get at once 
 
+
+
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa)
 {
@@ -78,29 +80,28 @@ int main(int argc, char *argv[])
 
     freeaddrinfo(servinfo); // all done with this structure
 
-    while(1){
+  
 
-        if (send(sockfd, "Hello, world!\n", 14, 0) == -1){
-            perror("send");
-        } else {
-            printf("Hello world sent\n");
-        }
-
-
-        if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
-            perror("recv");
-            exit(1);
-        } else if (numbytes == 0) {
-            printf("Connection closed by server\n");
-            break;
-        }
-
-
-        buf[numbytes] = '\0';
-
-        printf("client: received '%s'\n",buf);
-
+    if (send(sockfd, "Hello, world!", 13, 0) == -1){
+        perror("send");
+    } else {
+        printf("Hello world sent\n");
     }
+
+
+    if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
+        perror("recv");
+        exit(1);
+    } else if (numbytes == 0) {
+        printf("Connection closed by server\n");
+    }
+
+
+    buf[numbytes] = '\0';
+
+    printf("client: received '%s'\n",buf);
+
+    
 
 
     close(sockfd);
