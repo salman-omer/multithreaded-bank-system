@@ -227,7 +227,7 @@ int main(int argc, char *argv[])
 
             //send to server
             char finalMsg[strlen(cmd)+strlen(accountName)+2];
-            snprintf(finalMsg, sizeof finalMsg + 1, "%s %f|", cmd, amount);
+            snprintf(finalMsg, sizeof finalMsg + 1, "%s %s|", cmd, accountName);
             if ((byteSize = send(sockfd, finalMsg, strlen(finalMsg), 0)) == -1)
             {
                 // printf("U here?.\n");
