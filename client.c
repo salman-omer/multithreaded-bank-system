@@ -30,6 +30,10 @@ int main(int argc, char *argv[])
     char strIPaddr[INET_ADDRSTRLEN];    //IPv4 addr
     char buf[MAXINPUTSIZE];
 
+    // int new_sockfd;
+    // struct sockaddr_storage their_addr;
+    // socklen_t addr_size;
+
     //base case test - must have 3 arguments
     if (argc != 3)
     {
@@ -93,12 +97,32 @@ int main(int argc, char *argv[])
     printf("Client has successfully connected to the server.\n");
 	printf("Client received '%s'\n", buf);
 
-
+    /* command prompt */
     char cmd[10], accountName[256];
     char msg[MAXINPUTSIZE];
     // double amount;
+    int new_sockfd;
     while (1)
     {
+        //new socket for commands
+        if ((new_sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)  //socket error
+        {
+            perror("Client: socket");
+        }
+        if ((connect(new_sockfd, p->ai_addr, p->ai_addrlen)) == -1)     //connect error
+        {
+            perror("Client: Connect");
+        }
+
+        // addr_size = sizeof their_addr;
+        // new_sockfd = accept(new_sockfd, (struct sockaddr *)&their_addr, &addr_size);
+        // if (new_sockfd == -1)
+        // {
+        //     perror("accept");
+        //     continue;
+        // }
+        // printf("U here?\n");
+
         fgets(msg, MAXINPUTSIZE, stdin);
         printf("Message is: %s\n", msg);
         // printf("Message length is: %i\n", strlen(msg));
@@ -121,7 +145,7 @@ int main(int argc, char *argv[])
         printf("Command is: %s\n", cmd);
 
         //check if invalid command
-        if ((strcasecmp(cmd, "create") != 0) && !(strcmp(cmd, "serve") == 0) && (strcmp(cmd, "deposit") != 0) && (strcmp(cmd, "withdraw") != 0) && (strcmp(cmd, "query") != 0) && (strcmp(cmd, "end") != 0) && (strcmp(cmd, "quit") != 0))
+        if ((strcasecmp(cmd, "create") != 0) && (strcasecmp(cmd, "serve") != 0) && (strcasecmp(cmd, "deposit") != 0) && (strcasecmp(cmd, "withdraw") != 0) && (strcasecmp(cmd, "query") != 0) && (strcasecmp(cmd, "end") != 0) && (strcasecmp(cmd, "quit") != 0))
         {
             printf("ERROR: INVALID COMMAND\n");
             write(2, "ERROR: INVALID COMMAND\n", 24);
@@ -129,7 +153,7 @@ int main(int argc, char *argv[])
         }
         // printf("Flag: ONLY VALID COMMAND MAY PASS!!!\n");
 
-        if ((strcmp(cmd, "create") == 0) || (strcmp(cmd, "serve") == 0) || (strcmp(cmd, "deposit") == 0) || (strcmp(cmd, "withdraw") == 0))
+        if ((strcasecmp(cmd, "create") == 0) || (strcasecmp(cmd, "serve") == 0) || (strcasecmp(cmd, "deposit") == 0) || (strcasecmp(cmd, "withdraw") == 0))
         {
             index = index + i + 1;
             i = 0;
@@ -151,11 +175,10 @@ int main(int argc, char *argv[])
             // printf("U here?2\n");
             char finalMsg[strlen(cmd)+1];
             snprintf(finalMsg, sizeof finalMsg + 1, "%s|", cmd);
-            byteSize = 0;
             //cannot send twice
-            if ((byteSize = send(sockfd, finalMsg, strlen(finalMsg), 0)) == -1)
+            if ((byteSize = send(new_sockfd, finalMsg, strlen(finalMsg), 0)) == -1)
             {
-                // printf("U here?.\n"); 
+                // printf("U here?.\n");
                 perror("send");
                 return 1;
             }
@@ -163,8 +186,7 @@ int main(int argc, char *argv[])
             continue;
         }
         
-        
-        
+        close(new_sockfd);
     }
 
     close(sockfd);
