@@ -26,6 +26,34 @@ typedef struct singleClientHandlerArgs{
     struct sockaddr_storage* client_addr;
 } singleClientHandlerArgs;
 
+typedef struct tidListNode{
+    pthread_t tid;
+    struct tidListNode* next;
+} tidListNode;
+
+
+// GLOBAL VARIABLES
+
+tidListNode* tidList = NULL;
+int sockfd;
+
+
+// add the input tid to beginning of the linked list
+void addTidToList(pthread_t tid){
+    if(tidList == NULL){
+        tidList = malloc(sizeof(tidListNode));
+        tidList->tid = tid;
+        tidList->next = NULL;
+        return;
+    }
+    tidListNode* curr = tidList;
+    tidListNode* newNode = malloc(sizeof(tidListNode));
+    newNode->tid = tid;
+    newNode->next = curr;
+    tidList = newNode;
+    return;
+}
+
 void sigchld_handler(int s)
 {
     // waitpid() might overwrite errno, so we save and restore it:
@@ -35,6 +63,27 @@ void sigchld_handler(int s)
 
     errno = saved_errno;
 }
+
+// Handler for SIGINT, caused by 
+// Ctrl-C at keyboard 
+void handle_sigint(int sig) 
+{ 
+    printf("Exit signal %d caught\n", sig); 
+
+    // join all the tids
+    tidListNode* curr = tidList;
+    while(curr != NULL){
+        void* status;
+        pthread_join(curr->tid, &status);
+        
+        tidListNode* currCopyToFree = curr;
+        curr = curr->next;
+        free(currCopyToFree);
+    }
+
+    close(sockfd);
+    exit(1);
+} 
 
 
 // get sockaddr, IPv4 or IPv6:
@@ -72,6 +121,8 @@ void* singleClientHander(void* args){
             printf("server: received '%s'\n",buf);
         }
 
+        sleep(5);
+
 
         char *strToSend = (char*)malloc((44 + strlen(buf) + 1) * sizeof(char));
         sprintf(strToSend, "Hi client, here's what the server recieved:  %s!", buf);
@@ -100,6 +151,10 @@ int isValidPortNumber(char* portString){
 
 int main(int argc, char* argv[])
 {
+
+    signal(SIGINT, handle_sigint);
+
+
     //base case test - must have 2 arguments
     if (argc != 2)
     {
@@ -119,7 +174,7 @@ int main(int argc, char* argv[])
 
 
    
-    int sockfd, new_fd;  // listen on sock_fd, new connection on new_fd
+    int new_fd;  // listen on sock_fd, new connection on new_fd
     struct addrinfo hints, *servinfo, *p;
     struct sockaddr_storage their_addr; // connector's address information
     socklen_t sin_size;
@@ -202,7 +257,6 @@ int main(int argc, char* argv[])
 
         // if there is a created socket, make a thread for this interaction
         pthread_t tid;
-        void* status;
 
         // create singleClientHandler data that is necessary
         singleClientHandlerArgs *args = malloc(sizeof(singleClientHandlerArgs));
@@ -210,11 +264,10 @@ int main(int argc, char* argv[])
         args->client_addr = &their_addr;
         
         pthread_create(&tid, NULL, singleClientHander, (void *)args);
-        pthread_join(tid, &status);
+        addTidToList(tid);
 
     }
 
-    close(sockfd);
 
     return 0;
 }
