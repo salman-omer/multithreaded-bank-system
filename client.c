@@ -9,26 +9,229 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 //#define PORT "10000"
 #define MAXINPUTSIZE 300
 
-#define STDIN 0
 
-/*
-int strCaseInsensitiveCmp(char *str1, char *str2)
+int sockfd;
+
+// Handler for SIGINT, caused by 
+// Ctrl-C at keyboard 
+void handle_sigint(int sig) 
+{ 
+    printf("Exit signal %d caught \n", sig);
+    close(sockfd);
+    exit(1);
+}
+
+void *threadSend(void * send_arg)
 {
-    int i;
-    for (i = 0; i < strlen(str1); i++)
-    {
+    int byteSize;
+    sockfd = *((int *)send_arg);
 
+    while (1)
+    {
+        // char buf[MAXINPUTSIZE];
+        char cmd[10], accountName[256];
+        double amount;
+        char msg[MAXINPUTSIZE];
+        
+        
+
+        sleep(2);   //throttling for 2 seconds
+
+        fgets(msg, MAXINPUTSIZE, stdin);
+        printf("Message is: %s\n", msg);
+        // printf("Message length is: %i\n", strlen(msg));
+        msg[strlen(msg)-1] = '\0';
+
+        int index = 0, i = 0;
+
+        /*
+        while (msg[index] == ' ' || msg[index] == '\t')     //checking leading spaces
+        {
+            index++;
+        }
+        */
+
+        //first get till space then cut 
+        while (msg[i] != ' ' && i < 9 && msg[i] != '\0' && msg[i] != '\t')       //get command
+        {
+            // printf("msg: %c\n", msg[index + i]);
+            cmd[i] = msg[i];
+            i++;
+        }
+        cmd[i] = '\0';  //leading spaces removed + cmd now has the command syntax
+        printf("Command is: %s\n", cmd);
+
+        //check if invalid command
+        if ((strcasecmp(cmd, "create") != 0) && (strcasecmp(cmd, "serve") != 0) && (strcasecmp(cmd, "deposit") != 0) && (strcasecmp(cmd, "withdraw") != 0) && (strcasecmp(cmd, "query") != 0) && (strcasecmp(cmd, "end") != 0) && (strcasecmp(cmd, "quit") != 0))
+        {
+            printf("ERROR: INVALID COMMAND\n");
+            write(2, "ERROR: INVALID COMMAND\n", 24);
+            continue;
+        }
+        // printf("Flag: ONLY VALID COMMAND MAY PASS!!!\n");
+
+        index = i + 1;
+        i = 0;
+
+        
+        if ((strcasecmp(cmd, "create") == 0) || (strcasecmp(cmd, "serve") == 0))                //create & serve
+        {
+            
+            /*
+            while (msg[index] == ' ' || msg[index] == '\t')     //removing unnecessary spaces in between command and second input
+            {
+                index++;
+            }
+            */
+
+            while (msg[index + i] != '\0' && i < 254)       //get second input
+            {
+                accountName[i] = msg[index + i];
+                i++;
+            }
+            accountName[i] = '\0';  //leading spaces removed + accountName now acquired
+            printf("accountName is: %s\n", accountName);
+
+            if (strlen(accountName) < 1)
+            {
+                printf("ERROR: INVALID ACCOUNT NAME\n");
+                write(2, "ERROR: INVALID ACCOUNT NAME\n", 29);
+                continue;
+            }
+
+            //send to server
+            char finalMsg[strlen(cmd)+strlen(accountName)+2];
+            snprintf(finalMsg, sizeof finalMsg + 1, "%s %s|", cmd, accountName);
+            if ((byteSize = send(sockfd, finalMsg, strlen(finalMsg), 0)) == -1)
+            {
+                // printf("U here?.\n");
+                perror("send");
+                exit(1);
+            }
+            printf("Client has sent '%s' command to the server.\n\n", finalMsg);
+            
+            //recv from server
+            /*
+            if ((byteSize = recv(sockfd, buf, MAXINPUTSIZE - 1, 0)) == -1)
+            {
+                perror("recv");
+                return 1;
+            }
+            buf[byteSize] = '\0';
+            printf("Client received '%s'\n", buf);
+            */
+
+            continue;
+
+        }
+        else if ((strcasecmp(cmd, "deposit") == 0) || (strcasecmp(cmd, "withdraw") == 0))       //deposit & withdraw
+        {
+            while (msg[index + i] != ' ' && i < 254 && msg[index + i] != '\0')       //get second input
+            {
+                accountName[i] = msg[index + i];
+                i++;
+            }
+            accountName[i] = '\0';
+            // printf("soon to be amount is: %s\n", accountName);
+
+            amount = atof(accountName);
+            if ((amount == 0 && accountName[0] != '0') || amount < 0)
+            {
+                printf("ERROR: INVALID AMOUNT FORMAT\n");
+                write(2, "ERROR: INVALID AMOUNT FORMAT\n", 30);
+                continue;
+            }
+            printf("Amount is: %f\n", amount);
+
+
+            //send to server
+            char finalMsg[strlen(cmd)+strlen(accountName)+2];
+            snprintf(finalMsg, sizeof finalMsg + 1, "%s %s|", cmd, accountName);
+            if ((byteSize = send(sockfd, finalMsg, strlen(finalMsg), 0)) == -1)
+            {
+                // printf("U here?.\n");
+                perror("send");
+                exit(1);
+            }
+            printf("Client has sent '%s' command to the server.\n\n", finalMsg);
+            
+            //recv from server
+            /*
+            if ((byteSize = recv(sockfd, buf, MAXINPUTSIZE - 1, 0)) == -1)
+            {
+                perror("recv");
+                return 1;
+            }
+            buf[byteSize] = '\0';
+            printf("Client received '%s'\n", buf);
+            */
+
+            continue;
+
+        }
+        else                                                                        //send query, end, quit command to server
+        {
+            // printf("U here?2\n");
+            char finalMsg[strlen(cmd)+1];
+            snprintf(finalMsg, sizeof finalMsg + 1, "%s|", cmd);
+            if ((byteSize = send(sockfd, finalMsg, strlen(finalMsg), 0)) == -1)
+            {
+                // printf("U here?.\n");
+                perror("send");
+                exit(1);
+            }
+            printf("Client has sent '%s' command to the server.\n\n", finalMsg);
+            
+
+            //recv from server
+            /*
+            if ((byteSize = recv(sockfd, buf, MAXINPUTSIZE - 1, 0)) == -1)
+            {
+                perror("recv");
+                return 1;
+            }
+            buf[byteSize] = '\0';
+            printf("Client received '%s'\n", buf);
+            */
+
+            continue;
+        }
+        
     }
 }
-*/
+
+void *threadRecv(void * recv_arg)
+{
+    int byteSize;
+    sockfd = *((int *)recv_arg);
+
+    while (1)
+    {
+        char buf[MAXINPUTSIZE];
+
+        if ((byteSize = recv(sockfd, buf, MAXINPUTSIZE - 1, 0)) == -1)
+        {
+            perror("recv");
+            exit(1);
+        }
+        else if (byteSize == 0)
+        {
+            printf("Connection closed by server.\n");
+            exit(1);
+        }
+        buf[byteSize] = '\0';
+        printf("Client received '%s'\n", buf);
+    }
+}
 
 int main(int argc, char *argv[])
 {
-    int sockfd, status, byteSize;
+    int status;
     struct addrinfo hints, *res, *p;
     char strIPaddr[INET_ADDRSTRLEN];    //IPv4 addr
 
@@ -131,221 +334,23 @@ int main(int argc, char *argv[])
     */
     printf("Client has successfully connected to the server.\n");
 
+    signal(SIGINT, handle_sigint);
 
-    struct timeval tv;
-    fd_set writefds;
+    // struct timeval tv;
+    // fd_set readfds;
 
-    tv.tv_sec = 2;
-    tv.tv_usec = 0;
+    // tv.tv_sec = 2;
+    // tv.tv_usec = 0;
 
-    FD_ZERO(&writefds);
-    FD_SET(STDIN, &writefds);
+    // FD_ZERO(&readfds);
+    // FD_SET(STDIN, &readfds);
 
     /* command prompt */
-    while (1)
-    {
-        char buf[MAXINPUTSIZE];
-        char cmd[10], accountName[256];
-        double amount;
-        char msg[MAXINPUTSIZE];
-        //new socket for commands
-        /*
-        if ((new_sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)  //socket error
-        {
-            perror("Client: socket");
-        }
-        if ((connect(new_sockfd, p->ai_addr, p->ai_addrlen)) == -1)     //connect error
-        {
-            perror("Client: Connect");
-        }
-        */
+    pthread_t send_tid, recv_tid;
 
-        // addr_size = sizeof their_addr;
-        // new_sockfd = accept(new_sockfd, (struct sockaddr *)&their_addr, &addr_size);
-        // if (new_sockfd == -1)
-        // {
-        //     perror("accept");
-        //     continue;
-        // }
-        // printf("U here?\n");
+    pthread_create(&send_tid, NULL, threadSend, (void *)(&sockfd));
+    pthread_create(&recv_tid, NULL, threadRecv, (void *)(&sockfd));
 
-
-        fgets(msg, MAXINPUTSIZE, stdin);
-        printf("Message is: %s\n", msg);
-        // printf("Message length is: %i\n", strlen(msg));
-        msg[strlen(msg)-1] = '\0';
-
-        int index = 0, i = 0;
-
-        /*
-        while (msg[index] == ' ' || msg[index] == '\t')     //checking leading spaces
-        {
-            index++;
-        }
-        */
-
-
-        //first get till space then cut 
-        while (msg[i] != ' ' && i < 9 && msg[i] != '\0' && msg[i] != '\t')       //get command
-        {
-            // printf("msg: %c\n", msg[index + i]);
-            cmd[i] = msg[i];
-            i++;
-        }
-        cmd[i] = '\0';  //leading spaces removed + cmd now has the command syntax
-        printf("Command is: %s\n", cmd);
-
-        //check if invalid command
-        if ((strcasecmp(cmd, "create") != 0) && (strcasecmp(cmd, "serve") != 0) && (strcasecmp(cmd, "deposit") != 0) && (strcasecmp(cmd, "withdraw") != 0) && (strcasecmp(cmd, "query") != 0) && (strcasecmp(cmd, "end") != 0) && (strcasecmp(cmd, "quit") != 0))
-        {
-            printf("ERROR: INVALID COMMAND\n");
-            write(2, "ERROR: INVALID COMMAND\n", 24);
-
-            // select(STDIN+1, NULL, &writefds, NULL, &tv);
-            // if (FD_ISSET(STDIN, &writefds))
-            // {
-            //     printf("Write-able!\n");
-            // }else
-            // {
-            //     printf("Timed out.\n");
-            // }
-            continue;
-        }
-        // printf("Flag: ONLY VALID COMMAND MAY PASS!!!\n");
-
-        index = i + 1;
-        i = 0;
-
-        if ((strcasecmp(cmd, "create") == 0) || (strcasecmp(cmd, "serve") == 0))                //create & serve
-        {
-            
-            /*
-            while (msg[index] == ' ' || msg[index] == '\t')     //removing unnecessary spaces in between command and second input
-            {
-                index++;
-            }
-            */
-
-            while (msg[index + i] != '\0' && i < 254)       //get second input
-            {
-                accountName[i] = msg[index + i];
-                i++;
-            }
-            accountName[i] = '\0';  //leading spaces removed + accountName now acquired
-            printf("accountName is: %s\n", accountName);
-
-            if (strlen(accountName) < 1)
-            {
-                printf("ERROR: INVALID ACCOUNT NAME\n");
-                write(2, "ERROR: INVALID ACCOUNT NAME\n", 29);
-                continue;
-            }
-
-            //send to server
-            char finalMsg[strlen(cmd)+strlen(accountName)+2];
-            snprintf(finalMsg, sizeof finalMsg + 1, "%s %s|", cmd, accountName);
-            if ((byteSize = send(sockfd, finalMsg, strlen(finalMsg), 0)) == -1)
-            {
-                // printf("U here?.\n");
-                perror("send");
-                return 1;
-            }
-            printf("Client has sent '%s' command to the server.\n\n", finalMsg);
-            
-            //recv from server
-            if ((byteSize = recv(sockfd, buf, MAXINPUTSIZE - 1, 0)) == -1)
-            {
-                perror("recv");
-                return 1;
-            }
-            buf[byteSize] = '\0';
-            printf("Client received '%s'\n", buf);
-            
-            continue;
-
-        }
-        else if ((strcasecmp(cmd, "deposit") == 0) || (strcasecmp(cmd, "withdraw") == 0))       //deposit & withdraw
-        {
-            while (msg[index + i] != ' ' && i < 254 && msg[index + i] != '\0')       //get second input
-            {
-                accountName[i] = msg[index + i];
-                i++;
-            }
-            accountName[i] = '\0';
-            printf("soon to be amount is: %s\n", accountName);
-
-            amount = atof(accountName);
-            if (amount == 0 && accountName[0] != '0')
-            {
-                printf("ERROR: INVALID AMOUNT FORMAT\n");
-                write(2, "ERROR: INVALID AMOUNT FORMAT\n", 30);
-                continue;
-            }
-            printf("Amount is: %f\n", amount);
-
-
-            //send to server
-            char finalMsg[strlen(cmd)+strlen(accountName)+2];
-            snprintf(finalMsg, sizeof finalMsg + 1, "%s %s|", cmd, accountName);
-            if ((byteSize = send(sockfd, finalMsg, strlen(finalMsg), 0)) == -1)
-            {
-                // printf("U here?.\n");
-                perror("send");
-                return 1;
-            }
-            printf("Client has sent '%s' command to the server.\n\n", finalMsg);
-            
-            //recv from server
-            if ((byteSize = recv(sockfd, buf, MAXINPUTSIZE - 1, 0)) == -1)
-            {
-                perror("recv");
-                return 1;
-            }
-            buf[byteSize] = '\0';
-            printf("Client received '%s'\n", buf);
-            
-            continue;
-
-        }
-        else                                                                        //send query, end, quit command to server
-        {
-            // printf("U here?2\n");
-            char finalMsg[strlen(cmd)+1];
-            snprintf(finalMsg, sizeof finalMsg + 1, "%s|", cmd);
-            if ((byteSize = send(sockfd, finalMsg, strlen(finalMsg), 0)) == -1)
-            {
-                // printf("U here?.\n");
-                perror("send");
-                return 1;
-            }
-            printf("Client has sent '%s' command to the server.\n\n", finalMsg);
-            
-
-            //recv from server
-            if ((byteSize = recv(sockfd, buf, MAXINPUTSIZE - 1, 0)) == -1)
-            {
-                perror("recv");
-                return 1;
-            }
-            buf[byteSize] = '\0';
-            printf("Client received '%s'\n", buf);
-            
-            continue;
-        }
-        
-        //recv from server
-        /*
-        if ((byteSize = recv(new_sockfd, buf, MAXINPUTSIZE - 1, 0)) == -1)
-        {
-            perror("recv");
-            return 1;
-        }
-        buf[byteSize] = '\0';
-        printf("Client received '%s'\n", buf);
-        */
-
-        // close(new_sockfd);
-    }
 
     close(sockfd);
     printf("Client has successfully disconnected from the server.\n");
