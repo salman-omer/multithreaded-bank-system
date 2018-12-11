@@ -22,7 +22,7 @@ int sockfd;
 // Ctrl-C at keyboard 
 void handle_sigint(int sig) 
 { 
-    printf("Exit signal %d caught \n", sig);
+    printf("Exiting...\n"); 
     close(sockfd);
     exit(1);
 }
@@ -41,10 +41,12 @@ void *threadSend(void * send_arg)
         
         
 
-        //sleep(2);   //throttling for 2 seconds
+        sleep(2);   //throttling for 2 seconds
+        // fflush(stdin);
 
         fgets(msg, MAXINPUTSIZE, stdin);
-        sleep(2);
+
+        // sleep(2);
         printf("Message is: %s\n", msg);
         // printf("Message length is: %i\n", strlen(msg));
         msg[strlen(msg)-1] = '\0';
@@ -228,14 +230,13 @@ void *threadRecv(void * recv_arg)
         else if (byteSize == 0)
         {
             printf("Connection closed by server.\n");
+            close(sockfd);
+            printf("Client has successfully disconnected from the server.\n");
             exit(1);
         }
         buf[byteSize] = '\0';
         printf("Client received '%s'\n", buf);
     }
-
-    close(sockfd);
-    printf("Client has successfully disconnected from the server.\n");
     
     return NULL;
 }
@@ -357,18 +358,18 @@ int main(int argc, char *argv[])
     // FD_ZERO(&readfds);
     // FD_SET(STDIN, &readfds);
 
-    /* command prompt */
-    while (1)
-    {
+    /* command prompt */    
     pthread_t send_tid, recv_tid;
 
     pthread_create(&send_tid, NULL, threadSend, (void *)(&sockfd));
     pthread_create(&recv_tid, NULL, threadRecv, (void *)(&sockfd));
-    }
+
+    void* tid_status;
+    pthread_join(send_tid,&tid_status);
+    pthread_join(recv_tid,&tid_status);
     
-    
-    close(sockfd);
-    printf("Client has successfully disconnected from the server.\n");
+    // close(sockfd);
+    // printf("Client has successfully disconnected from the server.\n");
 
 
     return 0;
