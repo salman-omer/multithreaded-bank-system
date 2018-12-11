@@ -389,6 +389,7 @@ void* singleClientHandler(void* args){
                 //printf("server: received '%s' of command type '%s'\n",buf, "quit");
                 deserviceAccount(currAccount);
                 retString = "Client disconnected from server";
+                printf("Connection closed by client\n");
                 quit = true;
             } else { // invalid command
                 //printf("server: received '%s' of command type '%s'\n",buf, "invalid command");
@@ -432,7 +433,7 @@ void printDiagnosticInformation(){
         printf("No accounts in bank\n");
         return;
     }
-
+    printf("\n");
     accountNode* currAccount = accountsList;
     while(currAccount != NULL){
         char* inService;
