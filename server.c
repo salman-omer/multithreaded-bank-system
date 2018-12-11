@@ -11,6 +11,9 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <pthread.h>
+#include <semaphore.h>
+#include <sys/time.h>
+#include "server.h"
 
 
 #define BACKLOG 10     // how many pending connections queue will hold
@@ -19,31 +22,13 @@
 
 
 
-typedef enum { false, true } bool;
-
-typedef struct singleClientHandlerArgs{
-    int socketFd;
-    struct sockaddr_storage* client_addr;
-} singleClientHandlerArgs;
-
-typedef struct tidListNode{
-    pthread_t tid;
-    struct tidListNode* next;
-} tidListNode;
-
-typedef struct accountNode{
-    char* accountName;
-    double balance;
-    bool inService;
-    struct accountNode* next;
-} accountNode;
-
 
 // GLOBAL VARIABLES
 accountNode* accountsList = NULL;
 tidListNode* tidList = NULL;
 int sockfd;
 pthread_mutex_t createAccountLock;
+sem_t printLock;
 
 
 
@@ -79,7 +64,7 @@ void sigchld_handler(int s)
 // Ctrl-C at keyboard 
 void handle_sigint(int sig) 
 { 
-    printf("Exit signal %d caught \n", sig); 
+    printf("Exiting...\n"); 
 
     // join all the tids
     tidListNode* curr = tidList;
@@ -92,6 +77,7 @@ void handle_sigint(int sig)
     }
 
     close(sockfd);
+    sem_destroy(&printLock);
     exit(1);
 } 
 
@@ -169,6 +155,7 @@ accountNode* getAccount(char* name){
 // ret: a new account node for that account, NULL if it could not be created
 accountNode* createAccount(char* command){
 
+
     pthread_mutex_lock(&createAccountLock); 
 
     char* accountName = malloc(sizeof(char) * (strlen(&command[7]) + 1));
@@ -176,7 +163,7 @@ accountNode* createAccount(char* command){
 
     // if account of that name already exists, return NULL
     if(getAccount(accountName) != NULL){
-        printf("Account %s already exists\n", accountName);
+        //printf("Account %s already exists\n", accountName);
         pthread_mutex_unlock(&createAccountLock);
         return NULL;
     }else{  // need to make new account if it doesnt exist
@@ -186,8 +173,12 @@ accountNode* createAccount(char* command){
         newAccount->balance = 0;
         newAccount->inService = false;
         newAccount->next = temp;
+
+        sem_wait(&printLock);
         accountsList = newAccount;
-        printf("New Account Created for %s\n", accountName);
+        sem_post(&printLock);
+
+        //printf("New Account Created for %s\n", accountName);
         pthread_mutex_unlock(&createAccountLock);
         return newAccount;
     }
@@ -210,7 +201,9 @@ accountNode* serveAccount(char* command){
         return NULL;
     }
 
+    sem_wait(&printLock);
     serviceAccount->inService = true;
+    sem_post(&printLock);
     return serviceAccount;
 }
 
@@ -224,7 +217,9 @@ double deposit(char* command, accountNode* account){
     }
 
     double depositVal = atof(&(command[8]));
+    sem_wait(&printLock);
     account->balance = account->balance + depositVal;
+    sem_post(&printLock);
 
     return account->balance;
 
@@ -240,9 +235,24 @@ double withdraw(char* command, accountNode* account){
         return -1;
     }
 
+    sem_wait(&printLock);
     account->balance = account->balance - withdrawVal;
+    sem_post(&printLock);
 
     return account->balance;
+
+}
+
+//arg: account to deservice
+//ret: 0 is success, 1 if already deserviced or acc is null
+int deserviceAccount(accountNode* acc){
+    if(acc == NULL || acc->inService == false){
+        return 1;
+    }
+    sem_wait(&printLock);
+    acc->inService = false;
+    sem_post(&printLock);
+    return 0;
 
 }
 
@@ -290,9 +300,12 @@ void* singleClientHandler(void* args){
             // now we do something with the recieved data based on what command is submitted
             int commandType = getCommandType(buf);
 
+
+
+
             //create
             if(commandType == 1){
-                printf("server: received '%s' of command type '%s'\n",buf, "create");
+                //printf("server: received '%s' of command type '%s'\n",buf, "create");
                 if(currAccount != NULL){
                         retString = "Error: This client is currently servicing an account, unable to make a new account";
                 } else {
@@ -305,7 +318,7 @@ void* singleClientHandler(void* args){
 
 
             } else if (commandType == 2){ // serve
-                printf("server: received '%s' of command type '%s'\n",buf, "serve");
+                //printf("server: received '%s' of command type '%s'\n",buf, "serve");
                 if(currAccount != NULL){
                     retString = "You are currently servicing an account, 'serve' command not available";
 
@@ -319,7 +332,7 @@ void* singleClientHandler(void* args){
                 }
 
             } else if (commandType == 3){ // deposit
-                printf("server: received '%s' of command type '%s'\n",buf, "deposit");
+                //printf("server: received '%s' of command type '%s'\n",buf, "deposit");
                 if(currAccount == NULL){
                     retString = "Error: No account is currently being serviced by this client, cannot deposit";
                 } else {
@@ -337,7 +350,7 @@ void* singleClientHandler(void* args){
 
 
             } else if (commandType == 4){ // withdraw
-                printf("server: received '%s' of command type '%s'\n",buf, "withdraw");
+                //printf("server: received '%s' of command type '%s'\n",buf, "withdraw");
                 if(currAccount == NULL){
                     retString = "Error: No account is currently being serviced by this client, cannot withdraw";
                 } else {
@@ -356,7 +369,7 @@ void* singleClientHandler(void* args){
 
 
             } else if (commandType == 5){ // query
-                printf("server: received '%s' of command type '%s'\n",buf, "query");
+                //printf("server: received '%s' of command type '%s'\n",buf, "query");
                 if(currAccount == NULL){
                     retString = "Error: No account is currently being serviced by this client, cannot query";
                 } else {
@@ -364,20 +377,21 @@ void* singleClientHandler(void* args){
                     sprintf(retString, "Query successful, current account balance is %f!", currAccount->balance);
                 }  
             } else if (commandType == 6){ // end
-                printf("server: received '%s' of command type '%s'\n",buf, "end");
+                //printf("server: received '%s' of command type '%s'\n",buf, "end");
                 if(currAccount == NULL){
                     retString = "Error: this client is not currently servicing an account";
                 } else {
-                    currAccount->inService = false;
+                    deserviceAccount(currAccount);
                     currAccount = NULL;
                     retString = "Service session successfully ended";
                 }
             } else if (commandType == 7){ // quit
-                printf("server: received '%s' of command type '%s'\n",buf, "quit");
+                //printf("server: received '%s' of command type '%s'\n",buf, "quit");
+                deserviceAccount(currAccount);
                 retString = "Client disconnected from server";
                 quit = true;
             } else { // invalid command
-                printf("server: received '%s' of command type '%s'\n",buf, "invalid command");
+                //printf("server: received '%s' of command type '%s'\n",buf, "invalid command");
                 retString = "INVALID CLIENT COMMAND!";
             }
 
@@ -410,6 +424,35 @@ int isValidPortNumber(char* portString){
         return 1;
     }
     return 0;
+}
+
+// prints all account information
+void printDiagnosticInformation(){
+    if(accountsList == NULL){
+        printf("No accounts in bank\n");
+        return;
+    }
+
+    accountNode* currAccount = accountsList;
+    while(currAccount != NULL){
+        char* inService;
+        if(currAccount->inService == true){
+            inService = "IN SERVICE";
+        } else {
+            inService = "";
+        }
+        printf("%s\t%f\t%s\n",currAccount->accountName,currAccount->balance,inService);
+        currAccount = currAccount->next;
+    }
+
+    return;
+}
+
+
+void hangleSigAlarm(void) {
+    sem_wait(&printLock);
+    printDiagnosticInformation();
+    sem_post(&printLock);
 }
 
 
@@ -511,6 +554,26 @@ int main(int argc, char* argv[])
 
 
     //TODO: make a thread to handle printing every 15 seconds as per project specs
+
+    sem_init(&printLock,0,1);
+
+    struct itimerval it_val;  /* for setting itimer */
+    int interval = 15000;
+
+    /* Upon SIGALRM, call DoStuff().
+    * Set interval timer.  We want frequency in ms, 
+    * but the setitimer call needs seconds and useconds. */
+    if (signal(SIGALRM, (void (*)(int)) hangleSigAlarm) == SIG_ERR) {
+        perror("Unable to catch SIGALRM");
+        exit(1);
+    }
+    it_val.it_value.tv_sec = interval/1000;
+    it_val.it_value.tv_usec = (interval*1000) % 1000000;   
+    it_val.it_interval = it_val.it_value;
+    if (setitimer(ITIMER_REAL, &it_val, NULL) == -1) {
+        perror("error calling setitimer()");
+        exit(1);
+    }
 
 
 
