@@ -17,17 +17,17 @@
 
 #define MAXDATASIZE 100 // max number of bytes we can get at once 
 
+
+
 typedef enum { false, true } bool;
 
 typedef struct singleClientHandlerArgs{
     int socketFd;
     struct sockaddr_storage* client_addr;
-    //bool* forceExitThread;
 } singleClientHandlerArgs;
 
 typedef struct tidListNode{
     pthread_t tid;
-    //bool* forceExitThread;
     struct tidListNode* next;
 } tidListNode;
 
@@ -40,9 +40,12 @@ typedef struct accountNode{
 
 
 // GLOBAL VARIABLES
-
+accountNode* accountsList = NULL;
 tidListNode* tidList = NULL;
 int sockfd;
+pthread_mutex_t createAccountLock;
+
+
 
 
 // add the input tid to beginning of the linked list
@@ -148,6 +151,101 @@ int getCommandType(char* inputCommand){
     return 8;
 }
 
+// return accountNode for the input name from the master list, return NULL if not found
+accountNode* getAccount(char* name){
+    accountNode* curr = accountsList;
+    while(curr != NULL){
+        if(strcmp(curr->accountName, name) == 0){
+            return curr;
+        }
+        curr = curr->next;
+    }
+    return NULL;
+}
+
+// takes the input string and creates an account with the appropriate name
+// adds that account node to the list of account nodes
+// arg: create command of format "create <accountName>"
+// ret: a new account node for that account, NULL if it could not be created
+accountNode* createAccount(char* command){
+
+    pthread_mutex_lock(&createAccountLock); 
+
+    char* accountName = malloc(sizeof(char) * (strlen(&command[7]) + 1));
+    strcpy(accountName, &(command[7]));
+
+    // if account of that name already exists, return NULL
+    if(getAccount(accountName) != NULL){
+        printf("Account %s already exists\n", accountName);
+        pthread_mutex_unlock(&createAccountLock);
+        return NULL;
+    }else{  // need to make new account if it doesnt exist
+        accountNode* newAccount = malloc(sizeof(accountNode));
+        accountNode* temp = accountsList;
+        newAccount->accountName = accountName;
+        newAccount->balance = 0;
+        newAccount->inService = false;
+        newAccount->next = temp;
+        accountsList = newAccount;
+        printf("New Account Created for %s\n", accountName);
+        pthread_mutex_unlock(&createAccountLock);
+        return newAccount;
+    }
+
+    pthread_mutex_unlock(&createAccountLock); 
+
+    return NULL;
+}
+
+
+// takes input command and returns account to serve
+// checks if the account is in service
+// arg: serve command of format 'serve <accountName>'
+// ret: accountNode to serve, null if does not exist OR if it is in service
+accountNode* serveAccount(char* command){
+    char* accountName = malloc(sizeof(char) * (strlen(&command[6]) + 1));
+    strcpy(accountName, &(command[6]));
+    accountNode* serviceAccount = getAccount(accountName);
+    if(serviceAccount == NULL || serviceAccount->inService == true){
+        return NULL;
+    }
+
+    serviceAccount->inService = true;
+    return serviceAccount;
+}
+
+
+// takes input deposit command and adds money to input bank account
+// arg: deposit command of format 'deposit <amount>', accountNode to deposit to
+// ret: balance of bank account, -1 if acc doesnt exist
+double deposit(char* command, accountNode* account){
+    if(account == NULL){
+        return -1;
+    }
+
+    double depositVal = atof(&(command[8]));
+    account->balance = account->balance + depositVal;
+
+    return account->balance;
+
+}
+
+
+// takes input withdraw command and removes money to input bank account
+// arg: deposit command of format 'withdraw <amount>', accountNode to withdraw from
+// ret: balance of bank account, -1 if balance is too low to withdraw
+double withdraw(char* command, accountNode* account){
+    double withdrawVal = atof(&(command[9]));
+    if(account->balance <  withdrawVal){
+        return -1;
+    }
+
+    account->balance = account->balance - withdrawVal;
+
+    return account->balance;
+
+}
+
 void* singleClientHandler(void* args){
     singleClientHandlerArgs* argsStruct= (singleClientHandlerArgs*)args;
     char buf[MAXDATASIZE];
@@ -160,14 +258,17 @@ void* singleClientHandler(void* args){
 
     printf("server: got connection from %s\n", s);
 
-  
-    char* accountNameInService = NULL;
+      
+    accountNode* currAccount = NULL;
+    char* retString;
     // server first recieves, then it sends back a response
     while(1){
 
 
         // reset buffer
         buf[0] = '\0';
+        retString = NULL;
+        bool quit = false;
 
         if ((numbytes = recv(argsStruct->socketFd, buf, MAXDATASIZE-1, 0)) == -1) {
             perror("recv");
@@ -192,32 +293,107 @@ void* singleClientHandler(void* args){
             //create
             if(commandType == 1){
                 printf("server: received '%s' of command type '%s'\n",buf, "create");
+                if(currAccount != NULL){
+                        retString = "Error: This client is currently servicing an account, unable to make a new account";
+                } else {
+                    if(createAccount(buf) == NULL){
+                        retString = "Error: Account name already exists in bank";
+                    } else {
+                        retString = "Account successfully created";
+                    }
+                }
+
+
             } else if (commandType == 2){ // serve
                 printf("server: received '%s' of command type '%s'\n",buf, "serve");
+                if(currAccount != NULL){
+                    retString = "You are currently servicing an account, 'serve' command not available";
+
+                } else{
+                    currAccount = serveAccount(buf);
+                    if(currAccount == NULL){
+                        retString = "Error: Account is already in service by another client or it does not exist";
+                    } else {
+                        retString = "Account is now being serviced";
+                    }
+                }
+
             } else if (commandType == 3){ // deposit
                 printf("server: received '%s' of command type '%s'\n",buf, "deposit");
+                if(currAccount == NULL){
+                    retString = "Error: No account is currently being serviced by this client, cannot deposit";
+                } else {
+                    retString = (char*)malloc(100 * sizeof(char));
+                    //char *strToSend = (char*)malloc((44 + strlen(buf) + 1) * sizeof(char));
+                    double accountBal = deposit(buf, currAccount);
+                    if(accountBal < 0){
+                        sprintf(retString, "Deposit unsuccessful, try again");
+                    } else {
+                        sprintf(retString, "Deposit successful, current account balance is %f!", accountBal);
+                    }
+                }
+
+
+
+
             } else if (commandType == 4){ // withdraw
                 printf("server: received '%s' of command type '%s'\n",buf, "withdraw");
+                if(currAccount == NULL){
+                    retString = "Error: No account is currently being serviced by this client, cannot withdraw";
+                } else {
+                    retString = (char*)malloc(100 * sizeof(char));
+                    //char *strToSend = (char*)malloc((44 + strlen(buf) + 1) * sizeof(char));
+                    double accountBal = withdraw(buf, currAccount);
+                    if(accountBal < 0){
+                        sprintf(retString, "Withdraw unsuccessful, balance is too low");
+                    } else {
+                        sprintf(retString, "Withdraw successful, current account balance is %f!", accountBal);
+                    }
+                }
+
+
+
+
+
             } else if (commandType == 5){ // query
                 printf("server: received '%s' of command type '%s'\n",buf, "query");
+                if(currAccount == NULL){
+                    retString = "Error: No account is currently being serviced by this client, cannot query";
+                } else {
+                    retString = (char*)malloc(100 * sizeof(char));
+                    sprintf(retString, "Query successful, current account balance is %f!", currAccount->balance);
+                }  
             } else if (commandType == 6){ // end
                 printf("server: received '%s' of command type '%s'\n",buf, "end");
+                if(currAccount == NULL){
+                    retString = "Error: this client is not currently servicing an account";
+                } else {
+                    currAccount->inService = false;
+                    currAccount = NULL;
+                    retString = "Service session successfully ended";
+                }
             } else if (commandType == 7){ // quit
                 printf("server: received '%s' of command type '%s'\n",buf, "quit");
+                retString = "Client disconnected from server";
+                quit = true;
             } else { // invalid command
                 printf("server: received '%s' of command type '%s'\n",buf, "invalid command");
+                retString = "INVALID CLIENT COMMAND!";
             }
 
         }
 
 
 
-        char *strToSend = (char*)malloc((44 + strlen(buf) + 1) * sizeof(char));
-        sprintf(strToSend, "Hi client, here's what the server recieved:  %s!", buf);
-        if (send(argsStruct->socketFd, strToSend, 44 + strlen(buf) + 1, 0) == -1)
+        //char *strToSend = (char*)malloc((44 + strlen(buf) + 1) * sizeof(char));
+        //sprintf(strToSend, "Hi client, here's what the server recieved:  %s!", buf);
+        if (send(argsStruct->socketFd, retString, strlen(retString), 0) == -1)
             perror("send");
-    }
 
+        if(quit == true){
+            break;
+        }
+    }
 
   
     close(argsStruct->socketFd);
