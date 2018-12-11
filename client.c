@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <signal.h>
 
 //#define PORT "10000"
 #define MAXINPUTSIZE 300
@@ -40,9 +41,10 @@ void *threadSend(void * send_arg)
         
         
 
-        sleep(2);   //throttling for 2 seconds
+        //sleep(2);   //throttling for 2 seconds
 
         fgets(msg, MAXINPUTSIZE, stdin);
+        sleep(2);
         printf("Message is: %s\n", msg);
         // printf("Message length is: %i\n", strlen(msg));
         msg[strlen(msg)-1] = '\0';
@@ -125,7 +127,7 @@ void *threadSend(void * send_arg)
             buf[byteSize] = '\0';
             printf("Client received '%s'\n", buf);
             */
-
+            
             continue;
 
         }
@@ -170,7 +172,7 @@ void *threadSend(void * send_arg)
             buf[byteSize] = '\0';
             printf("Client received '%s'\n", buf);
             */
-
+            
             continue;
 
         }
@@ -198,11 +200,15 @@ void *threadSend(void * send_arg)
             buf[byteSize] = '\0';
             printf("Client received '%s'\n", buf);
             */
-
+            
             continue;
         }
         
     }
+    close(sockfd);
+    printf("Client has successfully disconnected from the server.\n");
+    
+    return NULL;
 }
 
 void *threadRecv(void * recv_arg)
@@ -227,6 +233,11 @@ void *threadRecv(void * recv_arg)
         buf[byteSize] = '\0';
         printf("Client received '%s'\n", buf);
     }
+
+    close(sockfd);
+    printf("Client has successfully disconnected from the server.\n");
+    
+    return NULL;
 }
 
 int main(int argc, char *argv[])
@@ -235,6 +246,8 @@ int main(int argc, char *argv[])
     struct addrinfo hints, *res, *p;
     char strIPaddr[INET_ADDRSTRLEN];    //IPv4 addr
 
+
+    signal(SIGINT, handle_sigint);
 
     // int new_sockfd;
     // struct sockaddr_storage their_addr;
@@ -334,7 +347,6 @@ int main(int argc, char *argv[])
     */
     printf("Client has successfully connected to the server.\n");
 
-    signal(SIGINT, handle_sigint);
 
     // struct timeval tv;
     // fd_set readfds;
@@ -346,14 +358,18 @@ int main(int argc, char *argv[])
     // FD_SET(STDIN, &readfds);
 
     /* command prompt */
+    while (1)
+    {
     pthread_t send_tid, recv_tid;
 
     pthread_create(&send_tid, NULL, threadSend, (void *)(&sockfd));
     pthread_create(&recv_tid, NULL, threadRecv, (void *)(&sockfd));
-
-
+    }
+    
+    
     close(sockfd);
     printf("Client has successfully disconnected from the server.\n");
+
 
     return 0;
 }
