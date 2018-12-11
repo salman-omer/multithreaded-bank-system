@@ -5,12 +5,15 @@
 #include <string.h>
 #include <netdb.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
 //#define PORT "10000"
 #define MAXINPUTSIZE 300
+
+#define STDIN 0
 
 /*
 int strCaseInsensitiveCmp(char *str1, char *str2)
@@ -29,7 +32,6 @@ int main(int argc, char *argv[])
     struct addrinfo hints, *res, *p;
     char strIPaddr[INET_ADDRSTRLEN];    //IPv4 addr
 
-    struct timeval tv;
 
     // int new_sockfd;
     // struct sockaddr_storage their_addr;
@@ -129,8 +131,15 @@ int main(int argc, char *argv[])
     */
     printf("Client has successfully connected to the server.\n");
 
+
+    struct timeval tv;
+    fd_set writefds;
+
     tv.tv_sec = 2;
     tv.tv_usec = 0;
+
+    FD_ZERO(&writefds);
+    FD_SET(STDIN, &writefds);
 
     /* command prompt */
     while (1)
@@ -159,6 +168,7 @@ int main(int argc, char *argv[])
         //     continue;
         // }
         // printf("U here?\n");
+
 
         fgets(msg, MAXINPUTSIZE, stdin);
         printf("Message is: %s\n", msg);
@@ -190,6 +200,15 @@ int main(int argc, char *argv[])
         {
             printf("ERROR: INVALID COMMAND\n");
             write(2, "ERROR: INVALID COMMAND\n", 24);
+
+            // select(STDIN+1, NULL, &writefds, NULL, &tv);
+            // if (FD_ISSET(STDIN, &writefds))
+            // {
+            //     printf("Write-able!\n");
+            // }else
+            // {
+            //     printf("Timed out.\n");
+            // }
             continue;
         }
         // printf("Flag: ONLY VALID COMMAND MAY PASS!!!\n");
@@ -214,6 +233,13 @@ int main(int argc, char *argv[])
             }
             accountName[i] = '\0';  //leading spaces removed + accountName now acquired
             printf("accountName is: %s\n", accountName);
+
+            if (strlen(accountName) < 1)
+            {
+                printf("ERROR: INVALID ACCOUNT NAME\n");
+                write(2, "ERROR: INVALID ACCOUNT NAME\n", 29);
+                continue;
+            }
 
             //send to server
             char finalMsg[strlen(cmd)+strlen(accountName)+2];
