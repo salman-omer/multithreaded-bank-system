@@ -23,7 +23,8 @@ int sockfd;
 void handle_sigint(int sig) 
 { 
     printf("Exiting...\n"); 
-    close(sockfd);
+    // close(sockfd);
+    printf("Client has disconnected from the server.\n");
     exit(1);
 }
 
@@ -39,15 +40,14 @@ void *threadSend(void * send_arg)
         double amount;
         char msg[MAXINPUTSIZE];
         
-        
 
         sleep(2);   //throttling for 2 seconds
-        // fflush(stdin);
 
         fgets(msg, MAXINPUTSIZE, stdin);
 
         // sleep(2);
-        printf("Message is: %s\n", msg);
+        // printf("Message is: %s\n", msg);
+
         // printf("Message length is: %i\n", strlen(msg));
         msg[strlen(msg)-1] = '\0';
 
@@ -68,13 +68,14 @@ void *threadSend(void * send_arg)
             i++;
         }
         cmd[i] = '\0';  //leading spaces removed + cmd now has the command syntax
-        printf("Command is: %s\n", cmd);
+        // printf("Command is: %s\n", cmd);
 
         //check if invalid command
         if ((strcasecmp(cmd, "create") != 0) && (strcasecmp(cmd, "serve") != 0) && (strcasecmp(cmd, "deposit") != 0) && (strcasecmp(cmd, "withdraw") != 0) && (strcasecmp(cmd, "query") != 0) && (strcasecmp(cmd, "end") != 0) && (strcasecmp(cmd, "quit") != 0))
         {
             printf("ERROR: INVALID COMMAND\n");
             write(2, "ERROR: INVALID COMMAND\n", 24);
+            printf("\n");
             continue;
         }
         // printf("Flag: ONLY VALID COMMAND MAY PASS!!!\n");
@@ -99,12 +100,13 @@ void *threadSend(void * send_arg)
                 i++;
             }
             accountName[i] = '\0';  //leading spaces removed + accountName now acquired
-            printf("accountName is: %s\n", accountName);
+            // printf("accountName is: %s\n", accountName);
 
             if (strlen(accountName) < 1)
             {
                 printf("ERROR: INVALID ACCOUNT NAME\n");
                 write(2, "ERROR: INVALID ACCOUNT NAME\n", 29);
+                printf("\n");
                 continue;
             }
 
@@ -117,7 +119,7 @@ void *threadSend(void * send_arg)
                 perror("send");
                 exit(1);
             }
-            printf("Client has sent '%s' command to the server.\n\n", finalMsg);
+            // printf("Client has sent '%s' command to the server.\n\n", finalMsg);
             
             //recv from server
             /*
@@ -148,9 +150,10 @@ void *threadSend(void * send_arg)
             {
                 printf("ERROR: INVALID AMOUNT FORMAT\n");
                 write(2, "ERROR: INVALID AMOUNT FORMAT\n", 30);
+                printf("\n");
                 continue;
             }
-            printf("Amount is: %f\n", amount);
+            // printf("Amount is: %f\n", amount);
 
 
             //send to server
@@ -162,7 +165,7 @@ void *threadSend(void * send_arg)
                 perror("send");
                 exit(1);
             }
-            printf("Client has sent '%s' command to the server.\n\n", finalMsg);
+            // printf("Client has sent '%s' command to the server.\n\n", finalMsg);
             
             //recv from server
             /*
@@ -189,7 +192,7 @@ void *threadSend(void * send_arg)
                 perror("send");
                 exit(1);
             }
-            printf("Client has sent '%s' command to the server.\n\n", finalMsg);
+            // printf("Client has sent '%s' command to the server.\n\n", finalMsg);
             
 
             //recv from server
@@ -207,8 +210,6 @@ void *threadSend(void * send_arg)
         }
         
     }
-    close(sockfd);
-    printf("Client has successfully disconnected from the server.\n");
     
     return NULL;
 }
@@ -235,7 +236,7 @@ void *threadRecv(void * recv_arg)
             exit(1);
         }
         buf[byteSize] = '\0';
-        printf("Client received '%s'\n", buf);
+        printf("Client received '%s'\n\n", buf);
     }
     
     return NULL;
@@ -259,6 +260,7 @@ int main(int argc, char *argv[])
     {
         printf("FATAL ERROR: INCORRECT NUMBER OF INPUTS\n");
   		write(2, "FATAL ERROR: INCORRECT NUMBER OF INPUTS\n", 41);
+        printf("\n");
   		return 1;
     }
     //Input ex: ./bankingClient cp.cs.rutgers.edu 9999
@@ -346,7 +348,7 @@ int main(int argc, char *argv[])
     printf("Client has successfully connected to the server.\n");
 	printf("Client received '%s'\n", buf);
     */
-    printf("Client has successfully connected to the server.\n");
+    printf("Client has successfully connected to the server.\n\n");
 
 
     // struct timeval tv;
@@ -368,9 +370,11 @@ int main(int argc, char *argv[])
     pthread_join(send_tid,&tid_status);
     pthread_join(recv_tid,&tid_status);
     
+    pthread_cancel(send_tid);
+    pthread_cancel(recv_tid);
+
     // close(sockfd);
     // printf("Client has successfully disconnected from the server.\n");
-
 
     return 0;
 }
