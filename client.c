@@ -71,7 +71,7 @@ void *threadSend(void * send_arg)
         // printf("Command is: %s\n", cmd);
 
         //check if invalid command
-        if ((strcasecmp(cmd, "create") != 0) && (strcasecmp(cmd, "serve") != 0) && (strcasecmp(cmd, "deposit") != 0) && (strcasecmp(cmd, "withdraw") != 0) && (strcasecmp(cmd, "query") != 0) && (strcasecmp(cmd, "end") != 0) && (strcasecmp(cmd, "quit") != 0))
+        if ((strcmp(cmd, "create") != 0) && (strcmp(cmd, "serve") != 0) && (strcmp(cmd, "deposit") != 0) && (strcmp(cmd, "withdraw") != 0) && (strcmp(cmd, "query") != 0) && (strcmp(cmd, "end") != 0) && (strcmp(cmd, "quit") != 0))
         {
             printf("ERROR: INVALID COMMAND\n");
             write(2, "ERROR: INVALID COMMAND\n", 24);
@@ -84,7 +84,7 @@ void *threadSend(void * send_arg)
         i = 0;
 
         
-        if ((strcasecmp(cmd, "create") == 0) || (strcasecmp(cmd, "serve") == 0))                //create & serve
+        if ((strcmp(cmd, "create") == 0) || (strcmp(cmd, "serve") == 0))                //create & serve
         {
             
             /*
@@ -135,7 +135,7 @@ void *threadSend(void * send_arg)
             continue;
 
         }
-        else if ((strcasecmp(cmd, "deposit") == 0) || (strcasecmp(cmd, "withdraw") == 0))       //deposit & withdraw
+        else if ((strcmp(cmd, "deposit") == 0) || (strcmp(cmd, "withdraw") == 0))       //deposit & withdraw
         {
             while (msg[index + i] != ' ' && i < 254 && msg[index + i] != '\0')       //get second input
             {
