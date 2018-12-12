@@ -43,7 +43,7 @@ void *threadSend(void * send_arg)
 
         sleep(2);   //throttling for 2 seconds
 
-        fgets(msg, MAXINPUTSIZE, stdin);
+        fgets(msg, 10000, stdin);
 
         // sleep(2);
         // printf("Message is: %s\n", msg);
@@ -94,11 +94,20 @@ void *threadSend(void * send_arg)
             }
             */
 
-            while (msg[index + i] != '\0' && i < 254)       //get second input
+            while (msg[index + i] != '\0')       //get second input
             {
                 accountName[i] = msg[index + i];
                 i++;
             }
+
+            if(i > 255){
+                printf("ERROR: ACCOUNT NAME IS TOO LONG\n");
+                write(2, "ERROR: ACCOUNT NAME IS TOO LONG\n", 33);
+                printf("\n");
+                continue;
+            }
+
+
             accountName[i] = '\0';  //leading spaces removed + accountName now acquired
             // printf("accountName is: %s\n", accountName);
 
@@ -137,13 +146,21 @@ void *threadSend(void * send_arg)
         }
         else if ((strcmp(cmd, "deposit") == 0) || (strcmp(cmd, "withdraw") == 0))       //deposit & withdraw
         {
-            while (msg[index + i] != ' ' && i < 254 && msg[index + i] != '\0')       //get second input
+            while (msg[index + i] != ' ' && i < 255 && msg[index + i] != '\0')       //get second input
             {
                 accountName[i] = msg[index + i];
                 i++;
             }
             accountName[i] = '\0';
             // printf("soon to be amount is: %s\n", accountName);
+
+            if (msg[index + i + 1] != '\0')
+            {
+                printf("ERROR: INVALID FORMAT\n");
+                write(2, "ERROR: INVALID FORMAT\n", 23);
+                printf("\n");
+                continue;
+            }
 
             amount = atof(accountName);
             if ((amount == 0 && accountName[0] != '0') || amount < 0)
@@ -183,6 +200,13 @@ void *threadSend(void * send_arg)
         }
         else                                                                        //send query, end, quit command to server
         {
+            if (msg[strlen(cmd)] != '\0')
+            {
+                printf("ERROR: INVALID FORMAT\n");
+                write(2, "ERROR: INVALID FORMAT\n", 23);
+                printf("\n");
+                continue;
+            }
             // printf("U here?2\n");
             char finalMsg[strlen(cmd)+1];
             snprintf(finalMsg, sizeof finalMsg + 1, "%s|", cmd);
