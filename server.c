@@ -410,7 +410,7 @@ void* singleClientHandler(void* args){
         }
     }
 
-  
+    deserviceAccount(currAccount);
     close(argsStruct->socketFd);
 
     return NULL;
@@ -430,7 +430,7 @@ int isValidPortNumber(char* portString){
 // prints all account information
 void printDiagnosticInformation(){
     if(accountsList == NULL){
-        printf("No accounts in bank\n");
+        printf("\nNo accounts in bank\n");
         return;
     }
     printf("\n");
