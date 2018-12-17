@@ -146,7 +146,7 @@ void *threadSend(void * send_arg)
         }
         else if ((strcmp(cmd, "deposit") == 0) || (strcmp(cmd, "withdraw") == 0))       //deposit & withdraw
         {
-            while (msg[index + i] != ' ' && i < 255 && msg[index + i] != '\0')       //get second input
+            while (msg[index + i] != ' ' && msg[index + i] != '\0')       //get second input
             {
                 accountName[i] = msg[index + i];
                 i++;
